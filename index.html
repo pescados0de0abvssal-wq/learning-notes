@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="学習ノート">
+<link rel="manifest" href="manifest.json">
+<title>学習ノート</title>
+<style>
+  :root {
+    --bg: #0f0f1a;
+    --surface: #1a1a2e;
+    --surface2: #22223b;
+    --border: #3a3a5c;
+    --accent: #4f46e5;
+    --accent2: #7c3aed;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --radius: 12px;
+    --hl-yellow: rgba(251,191,36,0.35);
+    --hl-green: rgba(52,211,153,0.35);
+    --hl-blue: rgba(96,165,250,0.35);
+    --hl-pink: rgba(248,113,113,0.35);
+    --hl-yellow-solid: #fbbf24;
+    --hl-green-solid: #34d399;
+    --hl-blue-solid: #60a5fa;
+    --hl-pink-solid: #f87171;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+
+  /* ===== APP SHELL ===== */
+  #app { display: flex; flex-direction: column; height: 100%; }
+
+  /* ===== HEADER ===== */
+  #header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 50;
+  }
+  #doc-selector {
+    flex: 1; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 6px 10px; font-size: 14px;
+    max-width: calc(100% - 100px);
+  }
+  .icon-btn {
+    width: 36px; height: 36px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface2); color: var(--text); font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; flex-shrink: 0;
+  }
+  .icon-btn:active { opacity: 0.7; }
+
+  /* ===== PROGRESS BAR ===== */
+  #progress-wrap {
+    padding: 4px 14px;
+    background: var(--surface);
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  #progress-bar-bg {
+    height: 6px; background: var(--border); border-radius: 3px; overflow: hidden;
+  }
+  #progress-bar {
+    height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 3px; transition: width 0.3s;
+    width: 0%;
+  }
+  #progress-text { font-size: 11px; color: var(--text2); text-align: right; margin-top: 2px; }
+
+  /* ===== TAB BAR ===== */
+  #tab-bar {
+    display: flex;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .tab {
+    flex: 1; padding: 10px 4px; text-align: center;
+    font-size: 13px; color: var(--text2); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+    user-select: none;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+
+  /* ===== PANELS ===== */
+  #panels { flex: 1; overflow: hidden; position: relative; }
+  .panel { display: none; height: 100%; overflow-y: auto; }
+  .panel.active { display: block; }
+
+  /* ===== TOC PANEL ===== */
+  #toc-panel { padding: 12px; }
+  .toc-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 10px 12px; margin-bottom: 4px;
+    background: var(--surface); border-radius: 8px;
+    border: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .toc-item:active { opacity: 0.8; }
+  .toc-check {
+    width: 18px; height: 18px; border-radius: 4px;
+    border: 2px solid var(--border); background: transparent;
+    flex-shrink: 0; margin-top: 1px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; transition: all 0.2s;
+  }
+  .toc-check.done { background: var(--accent); border-color: var(--accent); }
+  .toc-label { font-size: 14px; line-height: 1.4; flex: 1; }
+  .toc-item[data-level="2"] .toc-label { padding-left: 12px; font-size: 13px; color: var(--text2); }
+  .toc-item[data-level="3"] .toc-label { padding-left: 24px; font-size: 12px; color: var(--text2); }
+
+  /* ===== CONTENT PANEL ===== */
+  #content-panel { padding: 16px; }
+  #content-area { line-height: 1.8; font-size: 15px; }
+
+  /* markdown styles */
+  #content-area h1 { font-size: 1.5em; margin: 1em 0 0.5em; color: var(--text); border-bottom: 2px solid var(--accent); padding-bottom: 4px; }
+  #content-area h2 { font-size: 1.25em; margin: 1em 0 0.4em; color: var(--text); }
+  #content-area h3 { font-size: 1.1em; margin: 0.8em 0 0.3em; color: var(--text2); }
+  #content-area h4,#content-area h5,#content-area h6 { font-size: 1em; margin: 0.6em 0 0.3em; }
+  #content-area p { margin-bottom: 0.8em; }
+  #content-area ul,#content-area ol { margin: 0.5em 0 0.8em 1.4em; }
+  #content-area li { margin-bottom: 0.3em; }
+  #content-area code { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 1px 5px; font-family: 'Courier New', monospace; font-size: 0.88em; }
+  #content-area pre { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 12px; overflow-x: auto; margin-bottom: 1em; }
+  #content-area pre code { background: none; border: none; padding: 0; }
+  #content-area blockquote { border-left: 3px solid var(--accent); padding-left: 12px; color: var(--text2); margin: 0.5em 0 0.8em; }
+  #content-area strong { color: #fff; }
+  #content-area em { color: var(--hl-blue-solid); font-style: italic; }
+  #content-area hr { border: none; border-top: 1px solid var(--border); margin: 1em 0; }
+  #content-area a { color: var(--accent); text-decoration: underline; }
+  #content-area table { border-collapse: collapse; width: 100%; margin-bottom: 1em; font-size: 14px; }
+  #content-area th, #content-area td { border: 1px solid var(--border); padding: 6px 10px; }
+  #content-area th { background: var(--surface2); }
+
+  /* highlights */
+  .hl { border-radius: 3px; cursor: pointer; position: relative; }
+  .hl-y { background: var(--hl-yellow); }
+  .hl-g { background: var(--hl-green); }
+  .hl-b { background: var(--hl-blue); }
+  .hl-p { background: var(--hl-pink); }
+  .hl.has-memo { border-bottom: 2px dotted currentColor; }
+
+  /* ===== MEMO PANEL ===== */
+  #memo-panel { padding: 12px; }
+  .memo-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 12px; margin-bottom: 10px;
+  }
+  .memo-card-quote {
+    font-size: 12px; color: var(--text2); border-left: 3px solid var(--border);
+    padding-left: 8px; margin-bottom: 8px; line-height: 1.4;
+  }
+  .memo-card-text { font-size: 14px; color: var(--text); line-height: 1.5; }
+  .memo-card-actions { display: flex; gap: 6px; margin-top: 8px; }
+  .memo-tag {
+    display: inline-block; width: 12px; height: 12px; border-radius: 2px;
+    margin-right: 4px; vertical-align: middle;
+  }
+  .btn-sm {
+    font-size: 12px; padding: 3px 8px; border-radius: 6px;
+    border: 1px solid var(--border); background: var(--surface2);
+    color: var(--text2); cursor: pointer;
+  }
+
+  /* ===== EMPTY STATE ===== */
+  .empty-state {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 60vh; gap: 12px; color: var(--text2);
+    text-align: center; padding: 24px;
+  }
+  .empty-state .icon { font-size: 48px; }
+  .empty-state h2 { font-size: 18px; color: var(--text); }
+  .empty-state p { font-size: 14px; line-height: 1.6; }
+
+  /* ===== MODALS ===== */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.7);
+    display: flex; align-items: flex-end; justify-content: center;
+    z-index: 100; opacity: 0; pointer-events: none; transition: opacity 0.2s;
+  }
+  .modal-overlay.open { opacity: 1; pointer-events: all; }
+  .modal {
+    background: var(--surface); border-radius: var(--radius) var(--radius) 0 0;
+    width: 100%; max-width: 600px; padding: 20px;
+    transform: translateY(100%); transition: transform 0.3s ease;
+    max-height: 90vh; overflow-y: auto;
+  }
+  .modal-overlay.open .modal { transform: translateY(0); }
+  .modal h3 { font-size: 16px; margin-bottom: 14px; }
+  .modal textarea {
+    width: 100%; height: 200px; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 10px; font-size: 14px;
+    resize: none; font-family: monospace; line-height: 1.5;
+  }
+  .modal-actions { display: flex; gap: 8px; margin-top: 12px; justify-content: flex-end; }
+  .btn-primary {
+    background: var(--accent); color: #fff; border: none;
+    border-radius: 8px; padding: 8px 18px; font-size: 14px; cursor: pointer;
+  }
+  .btn-secondary {
+    background: var(--surface2); color: var(--text2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 8px 18px; font-size: 14px; cursor: pointer;
+  }
+  .btn-danger {
+    background: #7f1d1d; color: #fca5a5; border: none;
+    border-radius: 8px; padding: 8px 18px; font-size: 14px; cursor: pointer;
+  }
+  .modal input[type="text"] {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 8px; padding: 8px 12px; font-size: 14px;
+    margin-bottom: 10px;
+  }
+
+  /* ===== HIGHLIGHT PICKER ===== */
+  #hl-picker {
+    position: fixed; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 8px; display: none; z-index: 200;
+    gap: 6px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    flex-direction: column;
+  }
+  #hl-picker.show { display: flex; }
+  #hl-picker-colors { display: flex; gap: 6px; }
+  .hl-dot {
+    width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+    border: 2px solid transparent; transition: transform 0.1s;
+  }
+  .hl-dot:active { transform: scale(0.9); }
+  .hl-dot[data-c="y"] { background: var(--hl-yellow-solid); }
+  .hl-dot[data-c="g"] { background: var(--hl-green-solid); }
+  .hl-dot[data-c="b"] { background: var(--hl-blue-solid); }
+  .hl-dot[data-c="p"] { background: var(--hl-pink-solid); }
+  #hl-memo-btn {
+    font-size: 12px; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; padding: 4px 8px; cursor: pointer; text-align: center;
+  }
+
+  /* ===== HIGHLIGHT MEMO POPUP ===== */
+  #hl-memo-popup {
+    position: fixed; background: var(--surface); border: 1px solid var(--accent);
+    border-radius: 10px; padding: 10px; display: none; z-index: 200;
+    width: min(280px, 90vw); box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  #hl-memo-popup.show { display: block; }
+  #hl-memo-popup textarea {
+    width: 100%; height: 80px; background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text); border-radius: 6px; padding: 6px; font-size: 13px; resize: none;
+  }
+  #hl-memo-popup .popup-actions { display: flex; gap: 6px; margin-top: 6px; }
+  #hl-memo-popup .popup-actions button {
+    flex: 1; font-size: 13px; padding: 6px; border-radius: 6px; cursor: pointer;
+  }
+
+  /* ===== DOC LIST MODAL ===== */
+  .doc-list-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px; border-radius: 8px; margin-bottom: 4px;
+    background: var(--surface2); cursor: pointer; border: 1px solid var(--border);
+  }
+  .doc-list-item:active { opacity: 0.8; }
+  .doc-list-name { flex: 1; font-size: 14px; }
+  .doc-list-date { font-size: 11px; color: var(--text2); }
+  .doc-delete-btn { font-size: 14px; color: #f87171; padding: 2px 6px; cursor: pointer; }
+
+  /* ===== MISC ===== */
+  .section-label { font-size: 11px; color: var(--text2); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; padding: 0 2px; }
+  .file-drop { border: 2px dashed var(--border); border-radius: 8px; padding: 20px; text-align: center; color: var(--text2); font-size: 14px; margin-bottom: 12px; }
+  .file-drop.over { border-color: var(--accent); color: var(--accent); }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <select id="doc-selector" onchange="loadDoc(this.value)">
+      <option value="">ドキュメントを選択...</option>
+    </select>
+    <div class="icon-btn" onclick="openDocList()" title="ドキュメント管理">📋</div>
+    <div class="icon-btn" onclick="openImport()" title="インポート">＋</div>
+  </div>
+
+  <!-- PROGRESS -->
+  <div id="progress-wrap">
+    <div id="progress-bar-bg"><div id="progress-bar"></div></div>
+    <div id="progress-text">0 / 0 完了</div>
+  </div>
+
+  <!-- TABS -->
+  <div id="tab-bar">
+    <div class="tab active" data-tab="toc" onclick="switchTab('toc')">📑 目次</div>
+    <div class="tab" data-tab="content" onclick="switchTab('content')">📖 本文</div>
+    <div class="tab" data-tab="memo" onclick="switchTab('memo')">📝 メモ</div>
+  </div>
+
+  <!-- PANELS -->
+  <div id="panels">
+    <div class="panel active" id="toc-panel">
+      <div class="empty-state" id="toc-empty">
+        <div class="icon">📑</div>
+        <h2>目次がありません</h2>
+        <p>ドキュメントをインポートすると<br>見出しが目次として表示されます</p>
+      </div>
+      <div id="toc-list"></div>
+    </div>
+    <div class="panel" id="content-panel">
+      <div class="empty-state" id="content-empty">
+        <div class="icon">📖</div>
+        <h2>ドキュメントがありません</h2>
+        <p>右上の ＋ ボタンから<br>Markdownをインポートしてください</p>
+        <button class="btn-primary" onclick="openImport()">インポート</button>
+      </div>
+      <div id="content-area"></div>
+    </div>
+    <div class="panel" id="memo-panel">
+      <div class="empty-state" id="memo-empty">
+        <div class="icon">📝</div>
+        <h2>メモがありません</h2>
+        <p>本文でテキストを選択して<br>ハイライト＆メモを追加できます</p>
+      </div>
+      <div id="memo-list"></div>
+    </div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="import-modal">
+  <div class="modal">
+    <h3>📥 ドキュメントのインポート</h3>
+    <input type="text" id="import-title" placeholder="ドキュメント名（省略可）">
+    <div class="file-drop" id="file-drop" onclick="document.getElementById('file-input').click()">
+      📁 ファイルをタップして選択<br><small>.md / .txt に対応</small>
+    </div>
+    <input type="file" id="file-input" accept=".md,.txt" style="display:none" onchange="handleFile(this)">
+    <div class="section-label">または Markdown を貼り付け</div>
+    <textarea id="import-text" placeholder="# 見出し&#10;&#10;本文を貼り付けてください..."></textarea>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('import-modal')">キャンセル</button>
+      <button class="btn-primary" onclick="doImport()">インポート</button>
+    </div>
+  </div>
+</div>
+
+<!-- DOC LIST MODAL -->
+<div class="modal-overlay" id="doclist-modal">
+  <div class="modal">
+    <h3>📋 ドキュメント管理</h3>
+    <div id="doclist-inner"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" onclick="closeModal('doclist-modal')">閉じる</button>
+    </div>
+  </div>
+</div>
+
+<!-- MEMO EDIT MODAL -->
+<div class="modal-overlay" id="memo-modal">
+  <div class="modal">
+    <h3>📝 メモを編集</h3>
+    <div class="memo-card-quote" id="memo-edit-quote"></div>
+    <textarea id="memo-edit-text" placeholder="メモを入力..."></textarea>
+    <div class="modal-actions">
+      <button class="btn-danger" onclick="deleteMemoFromModal()">削除</button>
+      <button class="btn-secondary" onclick="closeModal('memo-modal')">キャンセル</button>
+      <button class="btn-primary" onclick="saveMemoFromModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- HIGHLIGHT PICKER -->
+<div id="hl-picker">
+  <div id="hl-picker-colors">
+    <div class="hl-dot" data-c="y" onclick="applyHighlight('y')" title="黄色"></div>
+    <div class="hl-dot" data-c="g" onclick="applyHighlight('g')" title="緑"></div>
+    <div class="hl-dot" data-c="b" onclick="applyHighlight('b')" title="青"></div>
+    <div class="hl-dot" data-c="p" onclick="applyHighlight('p')" title="赤"></div>
+  </div>
+  <div id="hl-memo-btn" onclick="openHlMemoInline()">＋ メモを追加</div>
+</div>
+
+<!-- HIGHLIGHT MEMO POPUP -->
+<div id="hl-memo-popup">
+  <div class="memo-card-quote" id="hl-memo-quote"></div>
+  <textarea id="hl-memo-text" placeholder="ハイライトにメモを追加..."></textarea>
+  <div class="popup-actions">
+    <button class="btn-secondary" onclick="closeHlMemo()">キャンセル</button>
+    <button class="btn-primary" onclick="saveHlMemo()">保存</button>
+  </div>
+</div>
+
+<script>
+// ===== STATE =====
+let state = {
+  docs: {},       // { id: { id, title, raw, html, toc, highlights, memos, tocDone, created } }
+  currentDoc: null,
+  currentTab: 'toc',
+};
+
+let pendingHL = null;  // { range, text, color }
+let editingMemoId = null;
+let editingHlId = null;
+
+// ===== STORAGE =====
+function save() {
+  try { localStorage.setItem('ln_state', JSON.stringify(state)); } catch(e) {}
+}
+function load() {
+  try {
+    const s = localStorage.getItem('ln_state');
+    if (s) state = JSON.parse(s);
+  } catch(e) {}
+}
+
+// ===== MARKDOWN PARSER (minimal) =====
+function parseMarkdown(md) {
+  const toc = [];
+  let html = md
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+
+  // code blocks
+  html = html.replace(/```[\s\S]*?```/g, m => {
+    const code = m.slice(3, -3).replace(/^\w*\n/, '');
+    return `<pre><code>${code}</code></pre>`;
+  });
+  // inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+  // headings
+  html = html.replace(/^(#{1,6})\s+(.+)$/gm, (_, h, text) => {
+    const level = h.length;
+    const id = 'h-' + Math.random().toString(36).slice(2);
+    if (level <= 3) toc.push({ level, text, id });
+    return `<h${level} id="${id}">${text}</h${level}>`;
+  });
+  // hr
+  html = html.replace(/^---+$/gm, '<hr>');
+  // bold
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  // italic
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  // links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+  // blockquote
+  html = html.replace(/^&gt;\s?(.+)$/gm, '<blockquote>$1</blockquote>');
+  // unordered list
+  html = html.replace(/^[\*\-]\s+(.+)$/gm, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+  // ordered list
+  html = html.replace(/^\d+\.\s+(.+)$/gm, '<li>$1</li>');
+  // tables (simple)
+  html = html.replace(/((\|.+\|\n)+)/g, m => {
+    const rows = m.trim().split('\n').filter(r => !/^\|[-| ]+\|/.test(r));
+    const tag = (r, t) => r.split('|').filter((_,i,a)=>i>0&&i<a.length-1).map(c=>`<${t}>${c.trim()}</${t}>`).join('');
+    return '<table>' + rows.map((r,i) => `<tr>${tag(r, i===0?'th':'td')}</tr>`).join('') + '</table>';
+  });
+  // paragraphs
+  html = html.replace(/\n{2,}/g, '\n\n');
+  html = html.split('\n\n').map(block => {
+    block = block.trim();
+    if (!block) return '';
+    if (/^<(h[1-6]|ul|ol|pre|blockquote|hr|table)/.test(block)) return block;
+    return `<p>${block.replace(/\n/g, '<br>')}</p>`;
+  }).join('\n');
+
+  return { html, toc };
+}
+
+// ===== DOC MANAGEMENT =====
+function newDoc(title, raw) {
+  const id = Date.now().toString();
+  const { html, toc } = parseMarkdown(raw);
+  const doc = {
+    id, title: title || 'ドキュメント ' + Object.keys(state.docs).length,
+    raw, html, toc,
+    highlights: {},   // { id: { id, text, color, memo, nodeInfo } }
+    memos: {},        // standalone memos (unused for now, hl-based)
+    tocDone: {},      // { tocIndex: true }
+    created: Date.now(),
+  };
+  state.docs[id] = doc;
+  return id;
+}
+
+function loadDoc(id) {
+  if (!id) return;
+  state.currentDoc = id;
+  document.getElementById('doc-selector').value = id;
+  renderAll();
+  save();
+}
+
+function deleteDoc(id) {
+  if (!confirm('このドキュメントを削除しますか？')) return;
+  delete state.docs[id];
+  if (state.currentDoc === id) {
+    state.currentDoc = null;
+    const ids = Object.keys(state.docs);
+    if (ids.length) state.currentDoc = ids[0];
+  }
+  save();
+  closeModal('doclist-modal');
+  rebuildSelector();
+  renderAll();
+}
+
+// ===== SELECTOR =====
+function rebuildSelector() {
+  const sel = document.getElementById('doc-selector');
+  sel.innerHTML = '<option value="">ドキュメントを選択...</option>';
+  Object.values(state.docs).sort((a,b) => b.created - a.created).forEach(doc => {
+    const opt = document.createElement('option');
+    opt.value = doc.id;
+    opt.textContent = doc.title;
+    sel.appendChild(opt);
+  });
+  if (state.currentDoc) sel.value = state.currentDoc;
+}
+
+// ===== RENDER ALL =====
+function renderAll() {
+  renderTOC();
+  renderContent();
+  renderMemos();
+  renderProgress();
+}
+
+// ===== PROGRESS =====
+function renderProgress() {
+  const doc = state.docs[state.currentDoc];
+  if (!doc || !doc.toc.length) {
+    document.getElementById('progress-bar').style.width = '0%';
+    document.getElementById('progress-text').textContent = '';
+    return;
+  }
+  const total = doc.toc.length;
+  const done = Object.keys(doc.tocDone).length;
+  const pct = Math.round(done / total * 100);
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-text').textContent = `${done} / ${total} 完了 (${pct}%)`;
+}
+
+// ===== TOC =====
+function renderTOC() {
+  const doc = state.docs[state.currentDoc];
+  const list = document.getElementById('toc-list');
+  const empty = document.getElementById('toc-empty');
+  list.innerHTML = '';
+  if (!doc || !doc.toc.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  doc.toc.forEach((item, idx) => {
+    const div = document.createElement('div');
+    div.className = 'toc-item';
+    div.dataset.level = item.level;
+    const check = document.createElement('div');
+    check.className = 'toc-check' + (doc.tocDone[idx] ? ' done' : '');
+    check.innerHTML = doc.tocDone[idx] ? '✓' : '';
+    const label = document.createElement('div');
+    label.className = 'toc-label';
+    label.textContent = item.text;
+    div.appendChild(check);
+    div.appendChild(label);
+    div.addEventListener('click', e => {
+      if (e.target === check || check.contains(e.target)) {
+        toggleTocDone(idx);
+      } else {
+        scrollToHeading(item.id);
+      }
+    });
+    list.appendChild(div);
+  });
+}
+
+function toggleTocDone(idx) {
+  const doc = state.docs[state.currentDoc];
+  if (!doc) return;
+  if (doc.tocDone[idx]) delete doc.tocDone[idx];
+  else doc.tocDone[idx] = true;
+  save();
+  renderTOC();
+  renderProgress();
+}
+
+function scrollToHeading(id) {
+  switchTab('content');
+  setTimeout(() => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, 50);
+}
+
+// ===== CONTENT =====
+function renderContent() {
+  const doc = state.docs[state.currentDoc];
+  const area = document.getElementById('content-area');
+  const empty = document.getElementById('content-empty');
+  if (!doc) { area.innerHTML = ''; empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  area.innerHTML = doc.html;
+  restoreHighlights(doc);
+}
+
+// ===== HIGHLIGHTS =====
+function restoreHighlights(doc) {
+  // Re-apply highlights using stored text positions
+  Object.values(doc.highlights).forEach(hl => {
+    applyHighlightToDOM(hl);
+  });
+}
+
+function applyHighlightToDOM(hl) {
+  const area = document.getElementById('content-area');
+  // Find text node containing the highlight
+  const walker = document.createTreeWalker(area, NodeFilter.SHOW_TEXT);
+  let node, acc = '';
+  const nodes = [];
+  while ((node = walker.nextNode())) {
+    nodes.push({ node, start: acc.length });
+    acc += node.textContent;
+  }
+  const text = acc;
+  const idx = text.indexOf(hl.text, hl.offset || 0);
+  if (idx === -1) return;
+  hl.offset = idx; // store for future re-finds
+
+  // Find nodes spanning idx..idx+len
+  const end = idx + hl.text.length;
+  nodes.forEach(({ node, start }) => {
+    const nEnd = start + node.textContent.length;
+    if (nEnd <= idx || start >= end) return;
+    const from = Math.max(0, idx - start);
+    const to = Math.min(node.textContent.length, end - start);
+    const parent = node.parentNode;
+    if (!parent || parent.classList?.contains('hl')) return;
+    const before = document.createTextNode(node.textContent.slice(0, from));
+    const mid = document.createElement('span');
+    mid.className = `hl hl-${hl.color}${hl.memo ? ' has-memo' : ''}`;
+    mid.dataset.hlId = hl.id;
+    mid.textContent = node.textContent.slice(from, to);
+    mid.addEventListener('click', () => onHlClick(hl.id));
+    const after = document.createTextNode(node.textContent.slice(to));
+    parent.replaceChild(after, node);
+    parent.insertBefore(mid, after);
+    parent.insertBefore(before, mid);
+  });
+}
+
+// Selection → highlight picker
+let selectionData = null;
+document.getElementById('content-area').addEventListener('mouseup', onSelectionEnd);
+document.getElementById('content-area').addEventListener('touchend', e => {
+  setTimeout(onSelectionEnd, 100);
+});
+
+function onSelectionEnd() {
+  const sel = window.getSelection();
+  if (!sel || sel.isCollapsed || !sel.toString().trim()) {
+    hidePicker();
+    return;
+  }
+  const text = sel.toString().trim();
+  const range = sel.getRangeAt(0);
+  const rect = range.getBoundingClientRect();
+  selectionData = { text, range };
+  showPicker(rect.left + rect.width / 2, rect.top + window.scrollY - 10);
+}
+
+function showPicker(x, y) {
+  const p = document.getElementById('hl-picker');
+  p.classList.add('show');
+  const pw = 150, ph = 80;
+  let left = Math.max(8, Math.min(x - pw/2, window.innerWidth - pw - 8));
+  let top = Math.max(8, y - ph - 8);
+  p.style.left = left + 'px';
+  p.style.top = top + 'px';
+}
+
+function hidePicker() {
+  document.getElementById('hl-picker').classList.remove('show');
+  selectionData = null;
+}
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('hl-picker').contains(e.target) &&
+      !document.getElementById('content-area').contains(e.target)) {
+    hidePicker();
+  }
+});
+
+function applyHighlight(color) {
+  if (!selectionData || !state.currentDoc) return;
+  const doc = state.docs[state.currentDoc];
+  const id = Date.now().toString();
+  const area = document.getElementById('content-area');
+  const areaText = area.innerText;
+  const offset = areaText.indexOf(selectionData.text);
+  const hl = { id, text: selectionData.text, color, memo: '', offset: offset >= 0 ? offset : 0 };
+  doc.highlights[id] = hl;
+  save();
+  hidePicker();
+  window.getSelection().removeAllRanges();
+  renderContent();
+  pendingHL = hl;
+}
+
+function openHlMemoInline() {
+  if (!selectionData) return;
+  // Apply yellow first, then open memo
+  applyHighlight('y');
+  if (pendingHL) {
+    openHlMemo(pendingHL.id);
+  }
+}
+
+function onHlClick(hlId) {
+  openHlMemo(hlId);
+}
+
+function openHlMemo(hlId) {
+  const doc = state.docs[state.currentDoc];
+  if (!doc) return;
+  const hl = doc.highlights[hlId];
+  if (!hl) return;
+  editingHlId = hlId;
+  document.getElementById('hl-memo-quote').textContent = hl.text.slice(0, 60) + (hl.text.length > 60 ? '...' : '');
+  document.getElementById('hl-memo-text').value = hl.memo || '';
+
+  const popup = document.getElementById('hl-memo-popup');
+  popup.classList.add('show');
+  // Position near center
+  popup.style.left = '50%';
+  popup.style.top = '50%';
+  popup.style.transform = 'translate(-50%, -50%)';
+  document.getElementById('hl-memo-text').focus();
+}
+
+function closeHlMemo() {
+  document.getElementById('hl-memo-popup').classList.remove('show');
+  editingHlId = null;
+}
+
+function saveHlMemo() {
+  if (!editingHlId || !state.currentDoc) return;
+  const doc = state.docs[state.currentDoc];
+  const hl = doc.highlights[editingHlId];
+  if (hl) {
+    hl.memo = document.getElementById('hl-memo-text').value.trim();
+    save();
+    renderContent();
+    renderMemos();
+  }
+  closeHlMemo();
+}
+
+// ===== MEMOS PANEL =====
+function renderMemos() {
+  const doc = state.docs[state.currentDoc];
+  const list = document.getElementById('memo-list');
+  const empty = document.getElementById('memo-empty');
+  list.innerHTML = '';
+  const hls = doc ? Object.values(doc.highlights).filter(h => h.memo) : [];
+  if (!hls.length) { empty.style.display = ''; return; }
+  empty.style.display = 'none';
+  hls.forEach(hl => {
+    const card = document.createElement('div');
+    card.className = 'memo-card';
+    const colorMap = { y: '#fbbf24', g: '#34d399', b: '#60a5fa', p: '#f87171' };
+    card.innerHTML = `
+      <div class="memo-card-quote">
+        <span class="memo-tag" style="background:${colorMap[hl.color]}"></span>
+        ${escHtml(hl.text.slice(0, 80))}${hl.text.length > 80 ? '...' : ''}
+      </div>
+      <div class="memo-card-text">${escHtml(hl.memo)}</div>
+      <div class="memo-card-actions">
+        <button class="btn-sm" onclick="openMemoModal('${hl.id}')">編集</button>
+        <button class="btn-sm" onclick="scrollToHL('${hl.id}')">本文へ</button>
+      </div>`;
+    list.appendChild(card);
+  });
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function openMemoModal(hlId) {
+  const doc = state.docs[state.currentDoc];
+  if (!doc) return;
+  const hl = doc.highlights[hlId];
+  editingMemoId = hlId;
+  document.getElementById('memo-edit-quote').textContent = hl.text.slice(0, 80);
+  document.getElementById('memo-edit-text').value = hl.memo || '';
+  document.getElementById('memo-modal').classList.add('open');
+}
+
+function saveMemoFromModal() {
+  if (!editingMemoId || !state.currentDoc) return;
+  const doc = state.docs[state.currentDoc];
+  const hl = doc.highlights[editingMemoId];
+  if (hl) {
+    hl.memo = document.getElementById('memo-edit-text').value.trim();
+    save();
+    renderContent();
+    renderMemos();
+  }
+  closeModal('memo-modal');
+}
+
+function deleteMemoFromModal() {
+  if (!editingMemoId || !state.currentDoc) return;
+  const doc = state.docs[state.currentDoc];
+  if (doc.highlights[editingMemoId]) {
+    doc.highlights[editingMemoId].memo = '';
+    save();
+    renderContent();
+    renderMemos();
+  }
+  closeModal('memo-modal');
+}
+
+function scrollToHL(hlId) {
+  switchTab('content');
+  setTimeout(() => {
+    const el = document.querySelector(`[data-hl-id="${hlId}"]`);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 50);
+}
+
+// ===== TABS =====
+function switchTab(tab) {
+  state.currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === tab + '-panel'));
+}
+
+// ===== IMPORT =====
+function openImport() {
+  document.getElementById('import-title').value = '';
+  document.getElementById('import-text').value = '';
+  document.getElementById('import-modal').classList.add('open');
+}
+
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (!document.getElementById('import-title').value) {
+    document.getElementById('import-title').value = file.name.replace(/\.(md|txt)$/, '');
+  }
+  const reader = new FileReader();
+  reader.onload = e => { document.getElementById('import-text').value = e.target.result; };
+  reader.readAsText(file, 'UTF-8');
+}
+
+function doImport() {
+  const title = document.getElementById('import-title').value.trim();
+  const text = document.getElementById('import-text').value.trim();
+  if (!text) { alert('テキストを入力してください'); return; }
+  const id = newDoc(title, text);
+  state.currentDoc = id;
+  save();
+  closeModal('import-modal');
+  rebuildSelector();
+  renderAll();
+  switchTab('content');
+}
+
+// drag-drop
+const dropZone = document.getElementById('file-drop');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('over');
+  const file = e.dataTransfer.files[0];
+  if (file) {
+    document.getElementById('import-title').value = file.name.replace(/\.(md|txt)$/, '');
+    const reader = new FileReader();
+    reader.onload = ev => { document.getElementById('import-text').value = ev.target.result; };
+    reader.readAsText(file, 'UTF-8');
+  }
+});
+
+// ===== DOC LIST =====
+function openDocList() {
+  const inner = document.getElementById('doclist-inner');
+  inner.innerHTML = '';
+  const docs = Object.values(state.docs).sort((a,b) => b.created - a.created);
+  if (!docs.length) { inner.textContent = 'ドキュメントがありません'; }
+  docs.forEach(doc => {
+    const div = document.createElement('div');
+    div.className = 'doc-list-item';
+    const hlCount = Object.keys(doc.highlights).length;
+    const memoCount = Object.values(doc.highlights).filter(h=>h.memo).length;
+    div.innerHTML = `
+      <div style="flex:1">
+        <div class="doc-list-name">${escHtml(doc.title)}</div>
+        <div class="doc-list-date">🔆${hlCount} ✍${memoCount} | ${new Date(doc.created).toLocaleDateString('ja-JP')}</div>
+      </div>
+      <div class="doc-delete-btn" onclick="event.stopPropagation();deleteDoc('${doc.id}')">🗑</div>`;
+    div.addEventListener('click', () => { loadDoc(doc.id); closeModal('doclist-modal'); });
+    inner.appendChild(div);
+  });
+  document.getElementById('doclist-modal').classList.add('open');
+}
+
+// ===== MODAL =====
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.classList.remove('open');
+  });
+});
+
+// ===== INIT =====
+load();
+rebuildSelector();
+if (state.currentDoc && state.docs[state.currentDoc]) {
+  renderAll();
+  switchTab(state.currentTab || 'toc');
+}
+
+// SW registration
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
