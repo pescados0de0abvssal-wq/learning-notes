@@ -142,6 +142,29 @@
   #content-area th, #content-area td { border: 1px solid var(--border); padding: 6px 10px; }
   #content-area th { background: var(--surface2); }
 
+  /* ===== HEADING DONE STATE ===== */
+  #content-area h1,
+  #content-area h2,
+  #content-area h3 {
+    cursor: pointer;
+    transition: color 0.25s, opacity 0.25s, border-color 0.25s;
+    -webkit-user-select: none; user-select: none;
+  }
+  #content-area h1.heading-done,
+  #content-area h2.heading-done,
+  #content-area h3.heading-done {
+    color: var(--text2) !important;
+    text-decoration: line-through;
+    opacity: 0.5;
+    border-bottom-color: var(--border) !important;
+  }
+  .heading-check-icon {
+    text-decoration: none !important;
+    display: inline;
+    margin-right: 4px;
+    font-style: normal;
+  }
+
   /* highlights */
   .hl { border-radius: 3px; cursor: pointer; position: relative; }
   .hl-y { background: var(--hl-yellow); }
@@ -590,6 +613,57 @@ function toggleTocDone(idx) {
   save();
   renderTOC();
   renderProgress();
+  // 本文タブの見出しにも反映
+  const item = doc.toc[idx];
+  if (item) {
+    const el = document.getElementById(item.id);
+    if (el) updateHeadingDoneState(el, !!doc.tocDone[idx]);
+  }
+}
+
+// ===== HEADING INTERACTIVITY =====
+function applyHeadingInteractivity(doc) {
+  doc.toc.forEach((item, idx) => {
+    const el = document.getElementById(item.id);
+    if (!el) return;
+    // 保存済み完了状態を反映
+    updateHeadingDoneState(el, !!doc.tocDone[idx]);
+    // タップで完了トグル（テキスト選択中は無視）
+    el.addEventListener('click', () => {
+      if (window.getSelection().toString()) return;
+      toggleHeadingDone(idx, item.id);
+    });
+  });
+}
+
+function updateHeadingDoneState(el, done) {
+  const existing = el.querySelector('.heading-check-icon');
+  if (done) {
+    el.classList.add('heading-done');
+    if (!existing) {
+      const icon = document.createElement('span');
+      icon.className = 'heading-check-icon';
+      icon.textContent = '✅ ';
+      el.prepend(icon);
+    }
+  } else {
+    el.classList.remove('heading-done');
+    if (existing) existing.remove();
+  }
+}
+
+function toggleHeadingDone(idx, headingId) {
+  const doc = state.docs[state.currentDoc];
+  if (!doc) return;
+  if (doc.tocDone[idx]) delete doc.tocDone[idx];
+  else doc.tocDone[idx] = true;
+  save();
+  // 本文の見出しを即時更新
+  const el = document.getElementById(headingId);
+  if (el) updateHeadingDoneState(el, !!doc.tocDone[idx]);
+  // 目次タブとプログレスバーも同期
+  renderTOC();
+  renderProgress();
 }
 
 function scrollToHeading(id) {
@@ -609,6 +683,7 @@ function renderContent() {
   empty.style.display = 'none';
   area.innerHTML = doc.html;
   restoreHighlights(doc);
+  applyHeadingInteractivity(doc);
 }
 
 // ===== HIGHLIGHTS =====
