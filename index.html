@@ -628,9 +628,13 @@ function applyHeadingInteractivity(doc) {
     if (!el) return;
     // 保存済み完了状態を反映
     updateHeadingDoneState(el, !!doc.tocDone[idx]);
-    // タップで完了トグル（テキスト選択中は無視）
+    // mouseup / touchend のバブリングを止めて onSelectionEnd が誤発動しないようにする
+    el.addEventListener('mouseup', e => e.stopPropagation());
+    el.addEventListener('touchend', e => e.stopPropagation());
+    // タップ／クリックで完了トグル
     el.addEventListener('click', () => {
-      if (window.getSelection().toString()) return;
+      hidePicker();                              // ピッカーが残っていれば閉じる
+      window.getSelection()?.removeAllRanges(); // 残存選択をクリア
       toggleHeadingDone(idx, item.id);
     });
   });
