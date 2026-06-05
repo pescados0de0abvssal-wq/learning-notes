@@ -142,6 +142,18 @@
   #content-area th, #content-area td { border: 1px solid var(--border); padding: 6px 10px; }
   #content-area th { background: var(--surface2); }
 
+  /* ===== TOC DONE ITEM ===== */
+  .toc-item.done .toc-label {
+    color: var(--text2);
+    text-decoration: line-through;
+    opacity: 0.65;
+  }
+  @keyframes toc-flash {
+    0%   { background: var(--accent); border-color: var(--accent); }
+    100% { background: var(--surface); border-color: var(--border); }
+  }
+  .toc-item-flash { animation: toc-flash 1s ease-out forwards; }
+
   /* ===== HEADING DONE STATE ===== */
   #content-area h1,
   #content-area h2,
@@ -584,8 +596,9 @@ function renderTOC() {
   empty.style.display = 'none';
   doc.toc.forEach((item, idx) => {
     const div = document.createElement('div');
-    div.className = 'toc-item';
+    div.className = 'toc-item' + (doc.tocDone[idx] ? ' done' : '');
     div.dataset.level = item.level;
+    div.dataset.tocIdx = idx;
     const check = document.createElement('div');
     check.className = 'toc-check' + (doc.tocDone[idx] ? ' done' : '');
     check.innerHTML = doc.tocDone[idx] ? '✓' : '';
@@ -668,6 +681,16 @@ function toggleHeadingDone(idx, headingId) {
   // 目次タブとプログレスバーも同期
   renderTOC();
   renderProgress();
+  // 目次タブへ切り替えて対応項目をスクロール＋フラッシュ
+  switchTab('toc');
+  setTimeout(() => {
+    const target = document.querySelector(`#toc-list .toc-item[data-toc-idx="${idx}"]`);
+    if (!target) return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    target.classList.remove('toc-item-flash'); // アニメーションリセット
+    void target.offsetWidth;                   // reflow で再トリガー
+    target.classList.add('toc-item-flash');
+  }, 50);
 }
 
 function scrollToHeading(id) {
